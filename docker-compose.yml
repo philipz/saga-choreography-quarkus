@@ -1,0 +1,109 @@
+---
+version: '3'
+services:
+  zookeeper:
+    image: debezium/zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - kafka
+
+  my-cluster-kafka-bootstrap:
+    image: debezium/kafka
+    container_name: my-cluster-kafka-bootstrap
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+      - "9092:9092"
+    environment:
+      ZOOKEEPER_CONNECT: 'zookeeper:2181'
+    networks:
+      - kafka
+
+  elk:
+    image: nshou/elasticsearch-kibana
+    container_name: elk
+    depends_on:
+      - zookeeper
+      - my-cluster-kafka-bootstrap
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+      - "5601:5601"
+    networks:
+      - kafka
+
+  postgres:
+    image: debezium/postgres
+    container_name: postgres
+    depends_on:
+      - zookeeper
+      - my-cluster-kafka-bootstrap
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    networks:
+      - kafka
+
+  connect:
+    image: quay.io/bridlos/outbox-connect
+    container_name: connect
+    depends_on:
+      - zookeeper
+      - my-cluster-kafka-bootstrap
+      - postgres
+    ports:
+      - "8083:8083"
+    environment:
+      es-host: http://elk:9200
+      BOOTSTRAP_SERVERS: 'my-cluster-kafka-bootstrap:9092'
+      GROUP_ID: 1
+      CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONFIG_STORAGE_TOPIC: my-connect-configs
+      OFFSET_STORAGE_TOPIC: my-connect-offsets
+      ADVERTISED_HOST_NAME: connect
+    networks:
+      - kafka
+
+  ticket:
+    image: quay.io/bridlos/ticket-service-quarkus
+    container_name: ticket
+    depends_on:
+      - zookeeper
+      - my-cluster-kafka-bootstrap
+    ports:
+      - "8080:8080"
+    networks:
+      - kafka
+
+  insurance:
+    image: quay.io/bridlos/insurance-service-quarkus
+    container_name: insurance
+    depends_on:
+      - zookeeper
+      - my-cluster-kafka-bootstrap
+    ports:
+      - "8090:8080"
+    networks:
+      - kafka
+
+  payment:
+    image: quay.io/bridlos/payment-service-quarkus
+    container_name: payment
+    depends_on:
+      - zookeeper
+      - my-cluster-kafka-bootstrap
+    ports:
+      - "8100:8080"
+    networks:
+      - kafka
+      
+networks:
+  kafka:
