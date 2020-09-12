@@ -37,8 +37,8 @@ echo -e "\nPruning done. Starting application..."
 ############################ Postgres
 
 echo -e "\nStart Postgresql container...."
-docker run -d --name postgres -p 5432:5432 debezium/postgres
-sleep 5
+docker run -d --name postgres -e POSTGRES_HOST_AUTH_METHOD=trust -p 5432:5432 debezium/postgres
+sleep 30
 echo -e "\nCREATE tickets database...."
 docker exec -it postgres psql -h localhost -p 5432 -U postgres -c 'CREATE DATABASE tickets;'
 sleep 5
@@ -53,7 +53,7 @@ echo -e "\nPostgresql started."
 sleep 5
 echo -e "\nStart Elastic Search + Kibana container...."
 docker run -d --name elk -p 9200:9200 -p 9300:9300 -p 5601:5601 nshou/elasticsearch-kibana
-sleep 15
+sleep 30
 echo -e "\nCreate index orders..."
 curl -X PUT http://localhost:9200/orders
 curl -X GET http://localhost:9200/_cat/indices?v
@@ -75,7 +75,7 @@ echo -e "\nKafka started."
 sleep 5
 echo -e "\nStart Debezium Kafka connect container...."
 docker run -d --name connect -p 8083:8083 -e es-host=http://elk:9200 -e BOOTSTRAP_SERVERS=my-cluster-kafka-bootstrap:9092 -e GROUP_ID=1 -e CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE=false -e CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE=false -e CONFIG_STORAGE_TOPIC=my-connect-configs -e OFFSET_STORAGE_TOPIC=my-connect-offsets -e ADVERTISED_HOST_NAME=${DOCKER_HOST} --link zookeeper:zookeeper --link postgres:postgres --link my-cluster-kafka-bootstrap:my-cluster-kafka-bootstrap --link elk:elk quay.io/bridlos/outbox-connect
-sleep 10
+sleep 30
 echo -e "\nCREATE kafka connector ticket-connector...."
 curl -X POST -H "Accept:application/json" -H "Content-Type:application/json" localhost:8083/connectors/ -d @debezium/connector/ticket-connector.json
 sleep 5
